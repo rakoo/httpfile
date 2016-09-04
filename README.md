@@ -14,7 +14,10 @@ $ ./httpfile
 
 # use
 
-The server runs on the 8080 port.
+The server runs on the 8080 port. The current iteration runs on a
+deduping store, which automatically chunks files based on their content
+and avoids storing those chunks twice, allowing similar or identical
+files to only take as much place as strictly necessary.
 
 ## Send a file
 
