@@ -27,7 +27,7 @@ type store interface {
 var st store
 
 func init() {
-	st = fsStore{"data"}
+	st = dedupStore{"data"}
 }
 
 func main() {

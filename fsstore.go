@@ -17,6 +17,8 @@ type fsStore struct {
 	root string
 }
 
+var _ store = fsStore{}
+
 func (fs fsStore) randomPath(name string) string {
 	var random [32]byte
 	rand.Read(random[:])
