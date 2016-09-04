@@ -39,13 +39,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
 		handlePost(w, r)
-	case "GET":
-		handleGet(w, r)
+	case "GET", "HEAD":
+		handleGet(w, r, r.Method)
 	}
 }
 
 func check(r *http.Request) bool {
-	if r.Method != "GET" && r.Method != "POST" {
+	if r.Method != "GET" && r.Method != "POST" && r.Method != "HEAD" {
 		return false
 	}
 	if err := r.ParseForm(); err != nil {
@@ -78,12 +78,25 @@ func handlePost(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func handleGet(w http.ResponseWriter, r *http.Request) {
+func handleGet(w http.ResponseWriter, r *http.Request, method string) {
 	rd, modTime, err := st.Get(r.Form.Get("name"))
 	if err != nil {
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
-	http.ServeContent(w, r, "", modTime, rd)
+	responseWriter := w
+	if method == "HEAD" {
+		// Provide a wrapper that doesn't write anything to client
+		responseWriter = nullWriter{w}
+	}
+	http.ServeContent(responseWriter, r, "", modTime, rd)
 	rd.Close()
+}
+
+type nullWriter struct {
+	http.ResponseWriter
+}
+
+func (nw nullWriter) Write(p []byte) (n int, err error) {
+	return len(p), nil
 }
