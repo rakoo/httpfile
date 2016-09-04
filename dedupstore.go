@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"time"
 )
@@ -143,7 +144,92 @@ func doRoll(rd io.Reader, chunks chan chunk, errors chan error, done chan struct
 }
 
 func (ds dedupStore) Get(name string) (rd readSeekCloser, modTime time.Time, err error) {
-	return
+	if len(name) < 2 {
+		return nil, time.Now(), errors.New("Invalid name")
+	}
+	filepath := path.Join(ds.root, name[:2], name[2:])
+	chunkList, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return nil, time.Now(), err
+	}
+	st, err := os.Stat(filepath)
+	if err != nil {
+		return nil, time.Now(), err
+	}
+
+	chunks := strings.Split(string(chunkList), "\n")
+	cr, err := newChunkedReader(ds.root, chunks)
+	return cr, st.ModTime(), err
+}
+
+type chunkedReader struct {
+	root   string
+	off    int64
+	chunks []string
+
+	// All offsets, starting from 0 then incremented by the size of each
+	// chunk
+	// There are len(chunks)+1 offsets, the last one indicates the total
+	// size of the file
+	chunkOffsets []int64
+}
+
+func newChunkedReader(root string, chunks []string) (*chunkedReader, error) {
+	cr := &chunkedReader{
+		root:         root,
+		chunks:       chunks,
+		chunkOffsets: make([]int64, len(chunks)+1),
+	}
+	totalOffset := int64(0)
+	for i, hash := range cr.chunks {
+		st, err := os.Stat(path.Join(cr.root, hash[:2], hash[2:]))
+		if err != nil {
+			return nil, err
+		}
+		cr.chunkOffsets[i+1] = totalOffset + st.Size()
+		totalOffset += st.Size()
+	}
+	return cr, nil
+}
+
+func (cr chunkedReader) Read(p []byte) (n int, err error) {
+	for len(p) > 0 {
+		chunkIndex := sort.Search(len(cr.chunkOffsets), func(i int) bool {
+			return cr.chunkOffsets[i] > cr.off
+		}) - 1
+		if chunkIndex == len(cr.chunkOffsets) {
+			return 0, errors.New("Invalid offset")
+		}
+		chunkHash := cr.chunks[chunkIndex]
+		chunk, err := ioutil.ReadFile(path.Join(cr.root, chunkHash[:2], chunkHash[2:]))
+		if err != nil {
+			return n, err
+		}
+		offsetInChunk := cr.off - cr.chunkOffsets[chunkIndex]
+		nn := copy(p, chunk[offsetInChunk:])
+		n += nn
+		cr.off += int64(nn)
+		p = p[nn:]
+	}
+
+	return n, nil
+}
+
+func (cr chunkedReader) Seek(offset int64, whence int) (int64, error) {
+	switch whence {
+	case io.SeekStart:
+		cr.off = offset
+	case io.SeekCurrent:
+		cr.off += offset
+	case io.SeekEnd:
+		totalSize := cr.chunkOffsets[len(cr.chunkOffsets)-1]
+		cr.off = totalSize - offset
+	}
+	return cr.off, nil
+}
+
+func (cr chunkedReader) Close() error {
+	return nil
 }
 
 func (ds dedupStore) Delete(name string) error {
