@@ -232,6 +232,33 @@ func (cr chunkedReader) Close() error {
 	return nil
 }
 
+// Delete deletes the metadata file but doesn't delete chunks, since
+// they may be used somewhere else
+// TODO: gc chunks ?
 func (ds dedupStore) Delete(name string) error {
+	filepath := path.Join(ds.root, name[:2], name[2:])
+	err := os.Remove(filepath)
+	if err != nil {
+		return err
+	}
+
+	untilRandomRest := path.Dir(filepath)
+	err = os.Remove(untilRandomRest)
+	if err != nil {
+		return err
+	}
+
+	untilRandom2 := path.Dir(untilRandomRest)
+	d, err := os.Open(untilRandom2)
+	if err != nil {
+		return err
+	}
+	names, err := d.Readdirnames(-1)
+	if err != nil {
+		return err
+	}
+	if len(names) == 0 {
+		os.Remove(untilRandom2)
+	}
 	return nil
 }
