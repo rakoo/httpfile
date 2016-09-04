@@ -13,6 +13,10 @@ import (
 // fsStore is a simple implementation of the store interface. It is not
 // designed to be run at high scales, as it will create one file for
 // each object and as such will probably be quickly limited by the OS.
+//
+// You probably want a dedupStore instead, which automatically dedupes
+// content on-disk to only store what is truly necessary. This store is
+// included for documentation of what is asked of a store.
 type fsStore struct {
 	root string
 }
