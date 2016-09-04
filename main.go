@@ -71,15 +71,16 @@ func check(r *http.Request) bool {
 	if r.Form.Get("name") == "" {
 		return false
 	}
-	if dir, file := path.Split(r.Form.Get("name")); dir == "" || file == "" {
-		return false
-	}
 	if r.Method == "POST" {
 		_, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 		if err != nil {
 			return false
 		}
 		if _, err := strconv.Atoi(r.Header.Get("Content-Length")); err != nil {
+			return false
+		}
+	} else {
+		if dir, file := path.Split(r.Form.Get("name")); dir == "" || file == "" {
 			return false
 		}
 	}
