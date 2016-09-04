@@ -248,7 +248,7 @@ func (cr chunkedReader) Read(p []byte) (n int, err error) {
 		chunkIndex := sort.Search(len(cr.chunkOffsets), func(i int) bool {
 			return cr.chunkOffsets[i] > cr.off
 		}) - 1
-		if chunkIndex == len(cr.chunkOffsets) {
+		if chunkIndex == len(cr.chunkOffsets)-1 {
 			return 0, errors.New("Invalid offset")
 		}
 		chunkHash := cr.chunks[chunkIndex]
