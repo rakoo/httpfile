@@ -14,7 +14,7 @@ type fsStore struct {
 	root string
 }
 
-func (fs fsStore) path(name string) string {
+func (fs fsStore) randomPath(name string) string {
 	var random [32]byte
 	rand.Read(random[:])
 	randomString := hex.EncodeToString(random[:])
@@ -23,7 +23,7 @@ func (fs fsStore) path(name string) string {
 }
 
 func (fs fsStore) Post(name string, rd io.Reader, modTime time.Time) (newpath string, err error) {
-	filepath := fs.path(name)
+	filepath := fs.randomPath(name)
 	if _, err := os.Stat(filepath); err == nil {
 		// File already exists
 		return "", errors.New("File already exists")
@@ -77,4 +77,32 @@ func (fs fsStore) Get(name string) (rd readSeekCloser, modTime time.Time, err er
 		return nil, time.Now(), err
 	}
 	return f, st.ModTime(), nil
+}
+
+func (fs fsStore) Delete(name string) error {
+	filepath := path.Join(fs.root, name[:2], name[2:])
+	err := os.Remove(filepath)
+	if err != nil {
+		return err
+	}
+
+	untilRandomRest := path.Dir(filepath)
+	err = os.Remove(untilRandomRest)
+	if err != nil {
+		return err
+	}
+
+	untilRandom2 := path.Dir(untilRandomRest)
+	d, err := os.Open(untilRandom2)
+	if err != nil {
+		return err
+	}
+	names, err := d.Readdirnames(-1)
+	if err != nil {
+		return err
+	}
+	if len(names) == 0 {
+		os.Remove(untilRandom2)
+	}
+	return nil
 }

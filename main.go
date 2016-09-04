@@ -18,6 +18,7 @@ type readSeekCloser interface {
 type store interface {
 	Post(name string, rd io.Reader, modTime time.Time) (newpath string, err error)
 	Get(name string) (rd readSeekCloser, modTime time.Time, err error)
+	Delete(name string) error
 }
 
 var st store
@@ -29,7 +30,10 @@ func init() {
 func main() {
 	http.HandleFunc("/", handler)
 	log.Println("Serving on :8080")
-	http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -42,11 +46,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		handlePost(w, r)
 	case "GET", "HEAD":
 		handleGet(w, r, r.Method)
+	case "DELETE":
+		handleDelete(w, r)
 	}
 }
 
 func check(r *http.Request) bool {
-	if r.Method != "GET" && r.Method != "POST" && r.Method != "HEAD" {
+	if r.Method != "GET" && r.Method != "POST" && r.Method != "HEAD" && r.Method != "DELETE" {
 		return false
 	}
 	if err := r.ParseForm(); err != nil {
@@ -102,4 +108,14 @@ type nullWriter struct {
 
 func (nw nullWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
+}
+
+func handleDelete(w http.ResponseWriter, r *http.Request) {
+	err := st.Delete(r.Form.Get("name"))
+	if err != nil {
+		log.Println("Couldn't delete:", err)
+		http.Error(w, "Couldn't delete", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
