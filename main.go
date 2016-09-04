@@ -10,11 +10,14 @@ import (
 	"time"
 )
 
+// readSeekCloser provides io.Close interface to io.ReadSeeker
 type readSeekCloser interface {
 	io.ReadSeeker
 	io.Closer
 }
 
+// store is the interface to be implemented by backends for basic
+// operations
 type store interface {
 	Post(name string, rd io.Reader, modTime time.Time) (newpath string, err error)
 	Get(name string) (rd readSeekCloser, modTime time.Time, err error)
@@ -36,6 +39,11 @@ func main() {
 	}
 }
 
+// handler dispatches the request to the proper handler depending on the
+// method.
+// As a security measure, any internal error is printed on stderr but
+// never sent to the client; they have no business knowing how the
+// server works.
 func handler(w http.ResponseWriter, r *http.Request) {
 	if !check(r) {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
@@ -51,6 +59,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// check makes sure the request has the correct method, params and
+// header values we expect
 func check(r *http.Request) bool {
 	if r.Method != "GET" && r.Method != "POST" && r.Method != "HEAD" && r.Method != "DELETE" {
 		return false
@@ -59,6 +69,9 @@ func check(r *http.Request) bool {
 		return false
 	}
 	if r.Form.Get("name") == "" {
+		return false
+	}
+	if dir, file := path.Split(r.Form.Get("name")); dir == "" || file == "" {
 		return false
 	}
 	if r.Method == "POST" {
@@ -93,7 +106,6 @@ func handleGet(w http.ResponseWriter, r *http.Request, method string) {
 	}
 	responseWriter := w
 	if method == "HEAD" {
-		// Provide a wrapper that doesn't write anything to client
 		responseWriter = nullWriter{w}
 	}
 	random := path.Dir(r.Form.Get("name"))
@@ -102,6 +114,10 @@ func handleGet(w http.ResponseWriter, r *http.Request, method string) {
 	rd.Close()
 }
 
+// nullWriter is a wrapper around a http.ResponseWriter that doesn't
+// actually write anything. It is useful for requests that are
+// interested in writing all information except the actual content, such
+// as HEAD requests.
 type nullWriter struct {
 	http.ResponseWriter
 }

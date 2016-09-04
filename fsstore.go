@@ -10,6 +10,9 @@ import (
 	"time"
 )
 
+// fsStore is a simple implementation of the store interface. It is not
+// designed to be run at high scales, as it will create one file for
+// each object and as such will probably be quickly limited by the OS.
 type fsStore struct {
 	root string
 }
@@ -46,11 +49,14 @@ func (fs fsStore) Post(name string, rd io.Reader, modTime time.Time) (newpath st
 		return "", err
 	}
 
-	// There are 4 args:
+	// There are 4 args at this point:
 	// * "data"
 	// * 2 first chars of random
 	// * rest of random
 	// * filename
+	// (sample filepath:
+	// <root>/68/901af226d03f4a9d050ec049316848a5f44ad8e91800067d1073485521f050/<filename>
+	//
 	// we get the full random and filename
 	filename := path.Base(filepath)
 	dir := path.Dir(filepath)
@@ -62,7 +68,8 @@ func (fs fsStore) Post(name string, rd io.Reader, modTime time.Time) (newpath st
 }
 
 // Note: it's easy to exhaust the server's resources here because each
-// file is kept open as long as it's not completely served
+// file is kept open as long as it's not completely served. Don't use
+// this with high volume !
 func (fs fsStore) Get(name string) (rd readSeekCloser, modTime time.Time, err error) {
 	if len(name) < 2 {
 		return nil, time.Now(), errors.New("Invalid name")
