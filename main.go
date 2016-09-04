@@ -5,6 +5,7 @@ import (
 	"log"
 	"mime"
 	"net/http"
+	"path"
 	"strconv"
 	"time"
 )
@@ -89,6 +90,8 @@ func handleGet(w http.ResponseWriter, r *http.Request, method string) {
 		// Provide a wrapper that doesn't write anything to client
 		responseWriter = nullWriter{w}
 	}
+	random := path.Dir(r.Form.Get("name"))
+	w.Header().Set("Etag", random)
 	http.ServeContent(responseWriter, r, "", modTime, rd)
 	rd.Close()
 }
