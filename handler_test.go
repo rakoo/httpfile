@@ -135,6 +135,52 @@ func TestHandleGetHead(t *testing.T) {
 	}
 }
 
+func TestHandleDelete(t *testing.T) {
+	h := handler{newDummyStore()}
+	ts := httptest.NewServer(h)
+
+	postRes, _, err := postDefaultContent(t, ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// First test unexistant file
+	targetUrl, _ := url.Parse(ts.URL)
+	v := url.Values{}
+	v.Set("name", "random/unexistant-file.txt")
+	targetUrl.RawQuery = v.Encode()
+	deleteReq, _ := http.NewRequest("DELETE", targetUrl.String(), nil)
+	deleteRes, err := http.DefaultClient.Do(deleteReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deleteRes.StatusCode != http.StatusInternalServerError {
+		t.Fatal("[DELETE] got status code %d, expected %d", deleteRes.StatusCode, http.StatusInternalServerError)
+	}
+
+	// then test existing file
+	targetUrl, _ = url.Parse(ts.URL)
+	location, _ := url.Parse(postRes.Header.Get("Location"))
+	targetUrl.RawQuery = location.RawQuery
+	deleteReq, _ = http.NewRequest("DELETE", targetUrl.String(), nil)
+	deleteRes, err = http.DefaultClient.Do(deleteReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deleteRes.StatusCode != http.StatusOK {
+		t.Fatal("[DELETE] got status code %d, expected %d", deleteRes.StatusCode, http.StatusOK)
+	}
+
+	// then test re-deleting it
+	deleteRes, err = http.DefaultClient.Do(deleteReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deleteRes.StatusCode != http.StatusInternalServerError {
+		t.Fatal("[DELETE] got status code %d, expected %d", deleteRes.StatusCode, http.StatusInternalServerError)
+	}
+}
+
 // A thread-unsafe dummy store implementation, purely in-memory, good for tests
 type file struct {
 	name    string
