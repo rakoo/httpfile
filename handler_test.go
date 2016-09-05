@@ -74,8 +74,26 @@ func TestHandleGetHead(t *testing.T) {
 	}
 
 	for _, method := range []string{"GET", "HEAD"} {
+		// first test unexistant file
 		targetUrl, _ := url.Parse(ts.URL)
 		location, _ := url.Parse(postRes.Header.Get("Location"))
+		targetUrl.RawQuery = location.RawQuery
+		// override name with something fake
+		v := url.Values{}
+		v.Set("name", "random/unexistant-file.txt")
+		targetUrl.RawQuery = v.Encode()
+		unexistantReq, _ := http.NewRequest(method, targetUrl.String(), nil)
+		unexistantRes, err := http.DefaultClient.Do(unexistantReq)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if unexistantRes.StatusCode != http.StatusNotFound {
+			t.Fatalf("[%s] got status code %d for unexistant file, expected %d", method, unexistantRes.StatusCode, http.StatusNotFound)
+		}
+
+		// then test existing file
+		targetUrl, _ = url.Parse(ts.URL)
+		location, _ = url.Parse(postRes.Header.Get("Location"))
 		targetUrl.RawQuery = location.RawQuery
 		getReq, _ := http.NewRequest(method, targetUrl.String(), nil)
 		getRes, err := http.DefaultClient.Do(getReq)
@@ -84,37 +102,37 @@ func TestHandleGetHead(t *testing.T) {
 		}
 
 		if getRes.StatusCode != http.StatusOK {
-			t.Fatalf("got status %d, expected %d", getRes.StatusCode, http.StatusOK)
+			t.Fatalf("[%s] got status %d, expected %d", method, getRes.StatusCode, http.StatusOK)
 		}
 		actualSize, err := strconv.Atoi(getRes.Header.Get("Content-Length"))
 		if err != nil {
-			t.Fatalf("Couldn't parse Content-Length header (%s) as error: %v", getRes.Header.Get("Content-Length"), err)
+			t.Fatalf("[%s] Couldn't parse Content-Length header (%s) as error: %v", method, getRes.Header.Get("Content-Length"), err)
 		}
 		if actualSize != len(content) {
-			t.Fatalf("got size %d, expected %d", actualSize, len(content))
+			t.Fatalf("[%s] got size %d, expected %d", method, actualSize, len(content))
 		}
 
 		mt, _, err := mime.ParseMediaType(getRes.Header.Get("Content-Type"))
 		if err != nil {
-			t.Fatalf("Invalid Content-Type header(%s): %v", getRes.Header.Get("Content-Type"), err)
+			t.Fatalf("[%s] Invalid Content-Type header(%s): %v", method, getRes.Header.Get("Content-Type"), err)
 		}
 		if mt != "text/plain" {
-			t.Fatalf("got mimetype %s, expected text/plain", mt)
+			t.Fatalf("[%s] got mimetype %s, expected text/plain", method, mt)
 		}
 
 		expectedEtag := "75ed184249e9bc19675e4d1f766213da71b64278fed2cad5f18a247619205e30"
 		if getRes.Header.Get("Etag") != expectedEtag {
-			t.Fatalf("got Etag %s, expected %s", getRes.Header.Get("Etag"), expectedEtag)
+			t.Fatalf("[%s] got Etag %s, expected %s", method, getRes.Header.Get("Etag"), expectedEtag)
 		}
 
 		if method == "GET" {
 			body, err := ioutil.ReadAll(getRes.Body)
 			getRes.Body.Close()
 			if err != nil {
-				t.Fatal("Couldn't read body:", err)
+				t.Fatal("[GET] Couldn't read body:", err)
 			}
 			if !bytes.Equal(body, content) {
-				t.Fatalf("Invalid body, got %s, expected %s", body, content)
+				t.Fatalf("[GET] Invalid body, got %s, expected %s", body, content)
 			}
 		}
 	}
