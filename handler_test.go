@@ -76,9 +76,6 @@ func TestHandleGetHead(t *testing.T) {
 	for _, method := range []string{"GET", "HEAD"} {
 		// first test unexistant file
 		targetUrl, _ := url.Parse(ts.URL)
-		location, _ := url.Parse(postRes.Header.Get("Location"))
-		targetUrl.RawQuery = location.RawQuery
-		// override name with something fake
 		v := url.Values{}
 		v.Set("name", "random/unexistant-file.txt")
 		targetUrl.RawQuery = v.Encode()
@@ -93,7 +90,7 @@ func TestHandleGetHead(t *testing.T) {
 
 		// then test existing file
 		targetUrl, _ = url.Parse(ts.URL)
-		location, _ = url.Parse(postRes.Header.Get("Location"))
+		location, _ := url.Parse(postRes.Header.Get("Location"))
 		targetUrl.RawQuery = location.RawQuery
 		getReq, _ := http.NewRequest(method, targetUrl.String(), nil)
 		getRes, err := http.DefaultClient.Do(getReq)
