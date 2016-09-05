@@ -24,14 +24,12 @@ type store interface {
 	Delete(name string) error
 }
 
-var st store
-
-func init() {
-	st = dedupStore{"data"}
+type handler struct {
+	st store
 }
 
 func main() {
-	http.HandleFunc("/", handler)
+	http.Handle("/", handler{dedupStore{"data"}})
 	log.Println("Serving on :8080")
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
@@ -44,18 +42,18 @@ func main() {
 // As a security measure, any internal error is printed on stderr but
 // never sent to the client; they have no business knowing how the
 // server works.
-func handler(w http.ResponseWriter, r *http.Request) {
+func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !check(r) {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 	switch r.Method {
 	case "POST":
-		handlePost(w, r)
+		h.handlePost(w, r)
 	case "GET", "HEAD":
-		handleGet(w, r, r.Method)
+		h.handleGet(w, r, r.Method)
 	case "DELETE":
-		handleDelete(w, r)
+		h.handleDelete(w, r)
 	}
 }
 
@@ -88,8 +86,8 @@ func check(r *http.Request) bool {
 	return true
 }
 
-func handlePost(w http.ResponseWriter, r *http.Request) {
-	newpath, err := st.Post(r.Form.Get("name"), r.Body, time.Now())
+func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
+	newpath, err := h.st.Post(r.Form.Get("name"), r.Body, time.Now())
 	r.Body.Close()
 	if err != nil {
 		log.Println("Error putting:", err)
@@ -100,8 +98,8 @@ func handlePost(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-func handleGet(w http.ResponseWriter, r *http.Request, method string) {
-	rd, modTime, err := st.Get(r.Form.Get("name"))
+func (h handler) handleGet(w http.ResponseWriter, r *http.Request, method string) {
+	rd, modTime, err := h.st.Get(r.Form.Get("name"))
 	if err != nil {
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
@@ -128,8 +126,8 @@ func (nw nullWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func handleDelete(w http.ResponseWriter, r *http.Request) {
-	err := st.Delete(r.Form.Get("name"))
+func (h handler) handleDelete(w http.ResponseWriter, r *http.Request) {
+	err := h.st.Delete(r.Form.Get("name"))
 	if err != nil {
 		log.Println("Couldn't delete:", err)
 		http.Error(w, "Couldn't delete", http.StatusInternalServerError)
