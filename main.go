@@ -72,6 +72,7 @@ func check(r *http.Request) bool {
 		return false
 	}
 	if r.Method == "POST" {
+		// TODO: actually check Content-Type on data
 		_, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 		if err != nil {
 			return false

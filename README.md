@@ -29,7 +29,8 @@ To send a file, POST it with the following characteristics:
     empty)
 - The Content-Length Header must be set to the file's length (if less,
     it will be truncated)
-- The Content-Type Header must be set to the file's content type
+- The Content-Type Header must be set to the file's content type (not
+    checked for the moment)
 
 The response will be a 201 on success, with the Date set to the file's
 timestamp and the Location header set to the path to be used for
