@@ -75,7 +75,7 @@ loop:
 				// chunk already exists, no need to store it again
 				continue
 			}
-			if err := os.MkdirAll(path.Dir(chunkpath), 0700); err != nil {
+			if err := os.MkdirAll(path.Dir(chunkpath), 0755); err != nil {
 				return "", err
 			}
 			if err := ioutil.WriteFile(chunkpath, chunk.content, 0600); err != nil {
@@ -99,7 +99,7 @@ loop:
 		// File already exists
 		return "", errors.New("File already exists")
 	}
-	os.MkdirAll(path.Dir(filepath), 0700)
+	os.MkdirAll(path.Dir(filepath), 0755)
 	f, err := os.Create(filepath)
 	if err != nil {
 		return "", err
